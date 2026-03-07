@@ -77,24 +77,22 @@ https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main"
         | sudo tee /etc/apt/sources.list.d/opensearch.list
     sudo apt-get update -qq
     # If a previous install failed in postinst, purge it to clear the half-configured state.
-    if dpkg -s opensearch 2>/dev/null | grep -q "Status: install ok installed"; then
-        :
-    else
-        sudo apt-get purge -y opensearch || true
-    fi
-    # Skip the demo security config to avoid failing post-install script.
+    sudo apt-get purge -y opensearch || true
+    sudo rm -rf /etc/opensearch /var/lib/opensearch
+    # Skip the demo security config to avoid failing post-install script; force env into dpkg.
     echo "DISABLE_INSTALL_DEMO_CONFIG=true" | sudo tee /etc/default/opensearch >/dev/null
     OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234!
     DISABLE_INSTALL_DEMO_CONFIG=true
     export OPENSEARCH_INITIAL_ADMIN_PASSWORD DISABLE_INSTALL_DEMO_CONFIG
-    if ! sudo --preserve-env=OPENSEARCH_INITIAL_ADMIN_PASSWORD,DISABLE_INSTALL_DEMO_CONFIG,DEBIAN_FRONTEND \
-        DEBIAN_FRONTEND=noninteractive apt-get install -y opensearch; then
-        # If configure failed, retry configuration with the env flags set.
-        sudo --preserve-env=OPENSEARCH_INITIAL_ADMIN_PASSWORD,DISABLE_INSTALL_DEMO_CONFIG,DEBIAN_FRONTEND \
-            OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_INITIAL_ADMIN_PASSWORD" \
-            DISABLE_INSTALL_DEMO_CONFIG="$DISABLE_INSTALL_DEMO_CONFIG" \
-            dpkg --configure opensearch
-    fi
+    sudo env -i PATH="$PATH" \
+        OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_INITIAL_ADMIN_PASSWORD" \
+        DISABLE_INSTALL_DEMO_CONFIG="$DISABLE_INSTALL_DEMO_CONFIG" \
+        DEBIAN_FRONTEND=noninteractive apt-get install -y opensearch
+    # dpkg can still be half-configured; force a configure pass with the same env.
+    sudo env -i PATH="$PATH" \
+        OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_INITIAL_ADMIN_PASSWORD" \
+        DISABLE_INSTALL_DEMO_CONFIG="$DISABLE_INSTALL_DEMO_CONFIG" \
+        DEBIAN_FRONTEND=noninteractive dpkg --configure opensearch
     grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml \
         || echo 'plugins.security.disabled: true' | sudo tee -a /etc/opensearch/opensearch.yml
     sudo systemctl enable --now opensearch
