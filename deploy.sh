@@ -68,34 +68,67 @@ log "Installing RabbitMQ 3 …"
 sudo apt-get install -y rabbitmq-server
 sudo systemctl enable --now rabbitmq-server
 
-# Ensure previous broken install is cleaned
-sudo apt-get purge -y opensearch || true
+
+
+
+echo "=== Installing OpenSearch 2.19.4 ==="
+
+# 1️⃣ Remove any broken previous install
+if dpkg -l | grep -q opensearch; then
+    echo "Removing previous OpenSearch installation..."
+    sudo apt-get purge -y opensearch || true
+fi
 sudo rm -rf /etc/opensearch /var/lib/opensearch
 
-# Create the environment file
-cat <<EOF | sudo tee /etc/default/opensearch >/dev/null
-OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234!
-DISABLE_INSTALL_DEMO_CONFIG=true
-EOF
+# 2️⃣ Add OpenSearch APT repository if not exists
+if [ ! -f /etc/apt/sources.list.d/opensearch.list ]; then
+    echo "Adding OpenSearch repository..."
+    curl -fsSL https://artifacts.opensearch.org/publickeys/opensearch.pgp \
+        | sudo gpg --dearmor -o /usr/share/keyrings/opensearch.gpg
+    echo "deb [signed-by=/usr/share/keyrings/opensearch.gpg] \
+https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main" \
+        | sudo tee /etc/apt/sources.list.d/opensearch.list
+    sudo apt-get update -qq
+fi
 
-# Force installation with environment variables in-line
+# 3️⃣ Set required system settings
+echo "Setting vm.max_map_count..."
+sudo sysctl -w vm.max_map_count=262144
+if ! grep -q "vm.max_map_count" /etc/sysctl.conf; then
+    echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+fi
+
+# 4️⃣ Define admin password and skip demo config
+OPENSEARCH_ADMIN_PASSWORD="Admin1234!"
+
+# 5️⃣ Install OpenSearch with environment variables in-line
+echo "Installing OpenSearch..."
 sudo DEBIAN_FRONTEND=noninteractive \
-    OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234! \
+    OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_ADMIN_PASSWORD" \
     DISABLE_INSTALL_DEMO_CONFIG=true \
     apt-get install -y opensearch
 
-# In case post-install still fails, stub the demo installer
-sudo sed -i '1iexit 0' /usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh || true
+# 6️⃣ Stub demo configuration installer in case it still runs
+DEMO_INSTALLER="/usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh"
+if [ -f "$DEMO_INSTALLER" ]; then
+    sudo sed -i '1iexit 0' "$DEMO_INSTALLER"
+fi
 
-# Reconfigure to finalize package installation
+# 7️⃣ Reconfigure package to finalize
 sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 
-# Disable security in config to avoid auth issues
-grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml || \
+# 8️⃣ Ensure security plugin is disabled to avoid auth issues
+if ! grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml; then
     echo "plugins.security.disabled: true" | sudo tee -a /etc/opensearch/opensearch.yml
+fi
 
-# Enable and start service
+# 9️⃣ Enable and start OpenSearch service
 sudo systemctl enable --now opensearch
+
+echo "✅ OpenSearch 2.19.4 installation complete!"
+echo "Admin password: $OPENSEARCH_ADMIN_PASSWORD"
+
+
 
 log "Installing MinIO …"
 if [ ! -f /usr/local/bin/minio ]; then
