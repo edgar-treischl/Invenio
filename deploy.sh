@@ -28,9 +28,15 @@ log() { echo -e "\n\033[1;34m[deploy]\033[0m $*"; }
 # ── 1. System packages ────────────────────────────────────────────────────────
 log "Installing system packages …"
 sudo apt-get update -qq
+sudo apt-get install -y software-properties-common
+if ! grep -Rq "deadsnakes/ppa" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
+    log "Adding deadsnakes PPA for Python 3.9 …"
+    sudo add-apt-repository -y ppa:deadsnakes/ppa
+fi
+sudo apt-get update -qq
 sudo apt-get install -y \
     python3.9 python3.9-venv python3.9-dev python3-pip \
-    gcc g++ git curl netcat \
+    gcc g++ git curl netcat-openbsd \
     libpq-dev \
     libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libffi-dev \
     nginx supervisor
