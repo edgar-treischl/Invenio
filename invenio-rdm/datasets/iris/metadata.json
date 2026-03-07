@@ -1,0 +1,50 @@
+{
+  "access": {
+    "record": "public",
+    "files": "public"
+  },
+  "files": {
+    "enabled": true
+  },
+  "metadata": {
+    "resource_type": { "id": "dataset" },
+    "title": "Iris Flower Dataset — Fisher (1936)",
+    "description": "Classic morphometric dataset collected by Edgar Anderson and analysed by Ronald A. Fisher in his 1936 paper 'The use of multiple measurements in taxonomic problems'. Contains 150 observations of sepal and petal dimensions across three Iris species: setosa, versicolor, and virginica. Widely used as a benchmark in pattern recognition and machine learning.",
+    "publication_date": "1936-01-01",
+    "creators": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "family_name": "Fisher",
+          "given_name": "Ronald A."
+        }
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "family_name": "Anderson",
+          "given_name": "Edgar"
+        }
+      }
+    ],
+    "rights": [
+      { "id": "cc-by-4.0" }
+    ],
+    "languages": [
+      { "id": "eng" }
+    ],
+    "subjects": [
+      { "subject": "botany" },
+      { "subject": "morphometrics" },
+      { "subject": "machine learning" },
+      { "subject": "pattern recognition" }
+    ],
+    "version": "1.0.0",
+    "identifiers": [
+      {
+        "identifier": "https://archive.ics.uci.edu/ml/datasets/iris",
+        "scheme": "url"
+      }
+    ]
+  }
+}
