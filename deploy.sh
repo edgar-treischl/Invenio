@@ -76,7 +76,14 @@ if ! systemctl is-active --quiet opensearch; then
 https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main" \
         | sudo tee /etc/apt/sources.list.d/opensearch.list
     sudo apt-get update -qq
+    # If a previous install failed in postinst, purge it to clear the half-configured state.
+    if dpkg -s opensearch 2>/dev/null | grep -q "Status: install ok installed"; then
+        :
+    else
+        sudo apt-get purge -y opensearch || true
+    fi
     # Skip the demo security config to avoid failing post-install script.
+    echo "DISABLE_INSTALL_DEMO_CONFIG=true" | sudo tee /etc/default/opensearch >/dev/null
     sudo DISABLE_INSTALL_DEMO_CONFIG=true OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234! \
         apt-get install -y opensearch
     grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml \
