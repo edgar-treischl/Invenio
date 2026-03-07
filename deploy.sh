@@ -101,22 +101,26 @@ sudo mkdir -p "$(dirname "$DEMO_INSTALLER")"
 sudo bash -c "echo -e '#!/bin/bash\nexit 0' > $DEMO_INSTALLER"
 sudo chmod +x "$DEMO_INSTALLER"
 
-# Define admin password and skip demo config
+# Define strong admin password
 OPENSEARCH_ADMIN_PASSWORD='S#cureP@ssw0rd2026!'
 
-# Install OpenSearch
+# Install OpenSearch with environment variables
 sudo DEBIAN_FRONTEND=noninteractive \
     OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_ADMIN_PASSWORD" \
     DISABLE_INSTALL_DEMO_CONFIG=true \
     apt-get install -y opensearch
 
-# Reconfigure package to finalize
+# Finalize package configuration
 sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 
-# Disable security plugin to avoid auth issues
-if ! grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml; then
-    echo "plugins.security.disabled: true" | sudo tee -a /etc/opensearch/opensearch.yml
-fi
+# Ensure config file exists
+CONFIG_FILE="/etc/opensearch/opensearch.yml"
+sudo mkdir -p "$(dirname "$CONFIG_FILE")"
+sudo touch "$CONFIG_FILE"
+
+# Disable security plugin (PoC / dev only)
+grep -q "plugins.security.disabled" "$CONFIG_FILE" 2>/dev/null || \
+    echo "plugins.security.disabled: true" | sudo tee -a "$CONFIG_FILE"
 
 # Enable and start OpenSearch service
 sudo systemctl enable --now opensearch
