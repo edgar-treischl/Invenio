@@ -68,41 +68,58 @@ log "Installing RabbitMQ 3 …"
 sudo apt-get install -y rabbitmq-server
 sudo systemctl enable --now rabbitmq-server
 
-log "Installing OpenSearch 2 …"
+echo "Installing OpenSearch 2 …"
+
 if ! systemctl is-active --quiet opensearch; then
+    # Import OpenSearch GPG key
     curl -fsSL https://artifacts.opensearch.org/publickeys/opensearch.pgp \
         | sudo gpg --dearmor -o /usr/share/keyrings/opensearch.gpg
+
+    # Add OpenSearch APT repository
     echo "deb [signed-by=/usr/share/keyrings/opensearch.gpg] \
 https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main" \
         | sudo tee /etc/apt/sources.list.d/opensearch.list
+
     sudo apt-get update -qq
-    # If a previous install failed in postinst, purge it to clear the half-configured state.
+
+    # Purge any half-installed OpenSearch packages
     sudo apt-get purge -y opensearch || true
     sudo rm -rf /etc/opensearch /var/lib/opensearch
-    # Skip the demo security config to avoid failing post-install script; force env into dpkg.
+
+    # Disable demo config and set initial admin password
     cat <<EOF | sudo tee /etc/default/opensearch >/dev/null
 DISABLE_INSTALL_DEMO_CONFIG=true
 OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234!
 opensearch_initial_admin_password=Admin1234!
 EOF
-    OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234!
-    opensearch_initial_admin_password=Admin1234!
-    DISABLE_INSTALL_DEMO_CONFIG=true
-    export OPENSEARCH_INITIAL_ADMIN_PASSWORD opensearch_initial_admin_password DISABLE_INSTALL_DEMO_CONFIG
+
+    export OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234!
+    export opensearch_initial_admin_password=Admin1234!
+    export DISABLE_INSTALL_DEMO_CONFIG=true
+
+    # Install OpenSearch with clean environment to avoid interactive prompts
     sudo env -i PATH="$PATH" \
         OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_INITIAL_ADMIN_PASSWORD" \
         opensearch_initial_admin_password="$opensearch_initial_admin_password" \
         DISABLE_INSTALL_DEMO_CONFIG="$DISABLE_INSTALL_DEMO_CONFIG" \
         DEBIAN_FRONTEND=noninteractive apt-get install -y opensearch || true
-    # If the demo config script still runs, stub it out then re-run configure.
+
+    # Stub out the demo configuration script in case it still runs
     sudo sed -i '1iexit 0' /usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh || true
+
+    # Reconfigure package to finalize installation
     sudo env -i PATH="$PATH" \
         OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_INITIAL_ADMIN_PASSWORD" \
         opensearch_initial_admin_password="$opensearch_initial_admin_password" \
         DISABLE_INSTALL_DEMO_CONFIG="$DISABLE_INSTALL_DEMO_CONFIG" \
-        DEBIAN_FRONTEND=noninteractive dpkg --configure opensearch
-    grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml \
-        || echo 'plugins.security.disabled: true' | sudo tee -a /etc/opensearch/opensearch.yml
+        DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+
+    # Ensure security plugin is disabled in OpenSearch config
+    if ! grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml; then
+        echo 'plugins.security.disabled: true' | sudo tee -a /etc/opensearch/opensearch.yml
+    fi
+
+    # Enable and start OpenSearch service
     sudo systemctl enable --now opensearch
 fi
 
