@@ -10,6 +10,10 @@ MINIO_USER="${INVENIO_S3_ACCESS_KEY_ID:-minio}"
 MINIO_PASS="${INVENIO_S3_SECRET_ACCESS_KEY:-minio123456}"
 BUCKET_NAME="default"
 
+export INVENIO_S3_ACCESS_KEY_ID="minio"
+export INVENIO_S3_SECRET_ACCESS_KEY="minio123456"
+export INVENIO_S3_ENDPOINT_URL="http://localhost:9000"
+
 log() { echo "[setup] $*"; }
 
 wait_for() {

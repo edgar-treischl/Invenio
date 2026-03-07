@@ -169,13 +169,24 @@ pip install --quiet -r "$INVENIO_RDM/requirements.txt"
 
 
 # ── Start MinIO server ─────────────────────────────────────────────────────────
+# MinIO credentials
+MINIO_USER="minio"
+MINIO_PASS="minio123456"
+
 log "Starting MinIO …"
 mkdir -p "$MINIO_DATA"
 
-# Run MinIO in background (ports: API 9000, console 9001)
-nohup minio server "$MINIO_DATA" --console-address ":9001" >/tmp/minio.log 2>&1 &
+# Run MinIO in background with explicit credentials
+nohup minio server "$MINIO_DATA" \
+    --console-address ":9001" \
+    --address ":9000" \
+    --quiet \
+    --console-address ":9001" \
+    --root-user "$MINIO_USER" \
+    --root-password "$MINIO_PASS" \
+    >/tmp/minio.log 2>&1 &
 
-# Give MinIO a few seconds to initialize
+# Give MinIO a few seconds to start
 sleep 5
 
 # ── 7. One-time setup ─────────────────────────────────────────────────────────
