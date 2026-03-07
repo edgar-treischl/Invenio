@@ -51,7 +51,8 @@ sudo npm install -g --quiet less clean-css-cli
 
 # ── 2. Infrastructure services ────────────────────────────────────────────────
 log "Installing PostgreSQL 14 …"
-sudo apt-get install -y postgresql-14
+# Jammy ships PostgreSQL 14 as the default; install without version pin to avoid missing pkg errors.
+sudo apt-get install -y postgresql
 sudo systemctl enable --now postgresql
 sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='invenio'" \
     | grep -q 1 || sudo -u postgres psql <<SQL
