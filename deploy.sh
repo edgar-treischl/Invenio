@@ -23,6 +23,11 @@ INVENIO_INSTANCE="$USER_HOME/invenio-instance"
 MINIO_DATA="$USER_HOME/minio/data"
 SUPERVISOR_CONF="$USER_HOME/invenio-supervisor.conf"
 
+# MinIO credentials
+MINIO_USER="minio"
+MINIO_PASS="minio123456"
+MINIO_ENDPOINT="http://localhost:9000"
+
 log() { echo -e "\n\033[1;34m[deploy]\033[0m $*"; }
 
 # ── 1. System packages ────────────────────────────────────────────────────────
@@ -136,6 +141,24 @@ if [ ! -f /usr/local/bin/minio ]; then
 fi
 mkdir -p "$MINIO_DATA"
 
+# Start MinIO in background with correct credentials
+log "Starting MinIO …"
+nohup minio server "$MINIO_DATA" \
+    --console-address ":9001" \
+    --address ":9000" \
+    --quiet \
+    --root-user "$MINIO_USER" \
+    --root-password "$MINIO_PASS" \
+    >/tmp/minio.log 2>&1 &
+
+# Give MinIO a few seconds to start
+sleep 5
+
+# Export environment variables for setup.sh
+export INVENIO_S3_ACCESS_KEY_ID="$MINIO_USER"
+export INVENIO_S3_SECRET_ACCESS_KEY="$MINIO_PASS"
+export INVENIO_S3_ENDPOINT_URL="$MINIO_ENDPOINT"
+
 # ── 5. Copy repo files ────────────────────────────────────────────────────────
 log "Copying project files to $INVENIO_RDM …"
 rsync -a --delete "$REPO_DIR/invenio-rdm/" "$INVENIO_RDM/"
@@ -166,29 +189,6 @@ python3.9 -m venv "$INVENIO_VENV"
 source "$INVENIO_VENV/bin/activate"
 pip install --quiet --upgrade pip
 pip install --quiet -r "$INVENIO_RDM/requirements.txt"
-
-
-# ── Start MinIO server ─────────────────────────────────────────────────────────
-# MinIO credentials
-log "Starting MinIO …"
-mkdir -p "$MINIO_DATA"
-
-# Run MinIO in background with known credentials
-nohup minio server "$MINIO_DATA" \
-    --console-address ":9001" \
-    --address ":9000" \
-    --quiet \
-    --root-user "$MINIO_USER" \
-    --root-password "$MINIO_PASS" \
-    >/tmp/minio.log 2>&1 &
-
-# Give MinIO a few seconds to fully start
-sleep 5
-
-# Export environment variables for setup.sh
-export INVENIO_S3_ACCESS_KEY_ID="$MINIO_USER"
-export INVENIO_S3_SECRET_ACCESS_KEY="$MINIO_PASS"
-export INVENIO_S3_ENDPOINT_URL="$MINIO_ENDPOINT"
 
 # ── 7. One-time setup ─────────────────────────────────────────────────────────
 log "Running setup.sh …"
