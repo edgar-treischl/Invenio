@@ -1,11 +1,15 @@
 # InvenioRDM PoC — Native Ubuntu 22.04 Setup
 
+```
+copilot --resume=b498e773-127f-4b79-818e-dbc1743bb496
+```
+
 Self-hosted research data repository running **InvenioRDM v12** natively on Ubuntu 22.04. No Docker — all services run as native OS daemons.
 
 ## Quick start (Ubuntu 22.04 VM)
 
 ```bash
-git clone <this-repo> ~/invenio-repo
+git clone https://github.com/edgar-treischl/Invenio.git ~/invenio-repo
 cd ~/invenio-repo
 bash deploy.sh
 ```
