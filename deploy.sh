@@ -51,7 +51,6 @@ sudo npm install -g --quiet less clean-css-cli
 
 # ── 2. Infrastructure services ────────────────────────────────────────────────
 log "Installing PostgreSQL 14 …"
-# Jammy ships PostgreSQL 14 as the default; install without version pin to avoid missing pkg errors.
 sudo apt-get install -y postgresql
 sudo systemctl enable --now postgresql
 sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='invenio'" \
@@ -68,19 +67,17 @@ log "Installing RabbitMQ 3 …"
 sudo apt-get install -y rabbitmq-server
 sudo systemctl enable --now rabbitmq-server
 
+# ── 3. OpenSearch 2.19.4 ─────────────────────────────────────────────────────
+log "Installing OpenSearch 2.19.4 …"
 
-
-
-echo "=== Installing OpenSearch 2.19.4 ==="
-
-# 1️⃣ Remove any broken previous install
+# Remove any broken previous install
 if dpkg -l | grep -q opensearch; then
     echo "Removing previous OpenSearch installation..."
     sudo apt-get purge -y opensearch || true
 fi
 sudo rm -rf /etc/opensearch /var/lib/opensearch
 
-# 2️⃣ Add OpenSearch APT repository if not exists
+# Add OpenSearch repository if not exists
 if [ ! -f /etc/apt/sources.list.d/opensearch.list ]; then
     echo "Adding OpenSearch repository..."
     curl -fsSL https://artifacts.opensearch.org/publickeys/opensearch.pgp \
@@ -91,45 +88,43 @@ https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main"
     sudo apt-get update -qq
 fi
 
-# 3️⃣ Set required system settings
+# Required system setting
 echo "Setting vm.max_map_count..."
 sudo sysctl -w vm.max_map_count=262144
 if ! grep -q "vm.max_map_count" /etc/sysctl.conf; then
     echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
 fi
 
-# 4️⃣ Define admin password and skip demo config
+# Stub demo installer BEFORE installation
+DEMO_INSTALLER="/usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh"
+sudo mkdir -p "$(dirname "$DEMO_INSTALLER")"
+sudo bash -c "echo -e '#!/bin/bash\nexit 0' > $DEMO_INSTALLER"
+sudo chmod +x "$DEMO_INSTALLER"
+
+# Define admin password and skip demo config
 OPENSEARCH_ADMIN_PASSWORD="Admin1234!"
 
-# 5️⃣ Install OpenSearch with environment variables in-line
-echo "Installing OpenSearch..."
+# Install OpenSearch
 sudo DEBIAN_FRONTEND=noninteractive \
     OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_ADMIN_PASSWORD" \
     DISABLE_INSTALL_DEMO_CONFIG=true \
     apt-get install -y opensearch
 
-# 6️⃣ Stub demo configuration installer in case it still runs
-DEMO_INSTALLER="/usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh"
-if [ -f "$DEMO_INSTALLER" ]; then
-    sudo sed -i '1iexit 0' "$DEMO_INSTALLER"
-fi
-
-# 7️⃣ Reconfigure package to finalize
+# Reconfigure package to finalize
 sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 
-# 8️⃣ Ensure security plugin is disabled to avoid auth issues
+# Disable security plugin to avoid auth issues
 if ! grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml; then
     echo "plugins.security.disabled: true" | sudo tee -a /etc/opensearch/opensearch.yml
 fi
 
-# 9️⃣ Enable and start OpenSearch service
+# Enable and start OpenSearch service
 sudo systemctl enable --now opensearch
 
 echo "✅ OpenSearch 2.19.4 installation complete!"
 echo "Admin password: $OPENSEARCH_ADMIN_PASSWORD"
 
-
-
+# ── 4. MinIO ─────────────────────────────────────────────────────────────────
 log "Installing MinIO …"
 if [ ! -f /usr/local/bin/minio ]; then
     sudo curl -Lo /usr/local/bin/minio \
@@ -138,7 +133,7 @@ if [ ! -f /usr/local/bin/minio ]; then
 fi
 mkdir -p "$MINIO_DATA"
 
-# ── 3. Copy repo files ────────────────────────────────────────────────────────
+# ── 5. Copy repo files ────────────────────────────────────────────────────────
 log "Copying project files to $INVENIO_RDM …"
 rsync -a --delete "$REPO_DIR/invenio-rdm/" "$INVENIO_RDM/"
 
@@ -161,7 +156,7 @@ sudo ln -sf /etc/nginx/sites-available/invenio /etc/nginx/sites-enabled/invenio
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 
-# ── 4. Python virtualenv ──────────────────────────────────────────────────────
+# ── 6. Python virtualenv ──────────────────────────────────────────────────────
 log "Creating virtualenv at $INVENIO_VENV …"
 python3.9 -m venv "$INVENIO_VENV"
 # shellcheck disable=SC1090
@@ -169,12 +164,12 @@ source "$INVENIO_VENV/bin/activate"
 pip install --quiet --upgrade pip
 pip install --quiet -r "$INVENIO_RDM/requirements.txt"
 
-# ── 5. One-time setup ─────────────────────────────────────────────────────────
+# ── 7. One-time setup ─────────────────────────────────────────────────────────
 log "Running setup.sh …"
 export INVENIO_INSTANCE_PATH="$INVENIO_INSTANCE"
 bash "$INVENIO_RDM/scripts/setup.sh"
 
-# ── 6. Start supervisor ───────────────────────────────────────────────────────
+# ── 8. Start supervisor ───────────────────────────────────────────────────────
 log "Starting application processes …"
 supervisord -c "$SUPERVISOR_CONF"
 sleep 5
