@@ -93,8 +93,9 @@ EOF
         OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_INITIAL_ADMIN_PASSWORD" \
         opensearch_initial_admin_password="$opensearch_initial_admin_password" \
         DISABLE_INSTALL_DEMO_CONFIG="$DISABLE_INSTALL_DEMO_CONFIG" \
-        DEBIAN_FRONTEND=noninteractive apt-get install -y opensearch
-    # dpkg can still be half-configured; force a configure pass with the same env.
+        DEBIAN_FRONTEND=noninteractive apt-get install -y opensearch || true
+    # If the demo config script still runs, stub it out then re-run configure.
+    sudo sed -i '1iexit 0' /usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh || true
     sudo env -i PATH="$PATH" \
         OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_INITIAL_ADMIN_PASSWORD" \
         opensearch_initial_admin_password="$opensearch_initial_admin_password" \
