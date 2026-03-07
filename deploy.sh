@@ -84,8 +84,12 @@ https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main"
     fi
     # Skip the demo security config to avoid failing post-install script.
     echo "DISABLE_INSTALL_DEMO_CONFIG=true" | sudo tee /etc/default/opensearch >/dev/null
-    sudo DISABLE_INSTALL_DEMO_CONFIG=true OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234! \
-        apt-get install -y opensearch
+    if ! sudo DISABLE_INSTALL_DEMO_CONFIG=true OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234! \
+        DEBIAN_FRONTEND=noninteractive apt-get install -y opensearch; then
+        # If configure failed, retry configuration with the env flags set.
+        sudo DISABLE_INSTALL_DEMO_CONFIG=true OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234! \
+            dpkg --configure -a
+    fi
     grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml \
         || echo 'plugins.security.disabled: true' | sudo tee -a /etc/opensearch/opensearch.yml
     sudo systemctl enable --now opensearch
