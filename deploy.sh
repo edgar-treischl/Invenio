@@ -170,24 +170,25 @@ pip install --quiet -r "$INVENIO_RDM/requirements.txt"
 
 # ── Start MinIO server ─────────────────────────────────────────────────────────
 # MinIO credentials
-MINIO_USER="minio"
-MINIO_PASS="minio123456"
-
 log "Starting MinIO …"
 mkdir -p "$MINIO_DATA"
 
-# Run MinIO in background with explicit credentials
+# Run MinIO in background with known credentials
 nohup minio server "$MINIO_DATA" \
     --console-address ":9001" \
     --address ":9000" \
     --quiet \
-    --console-address ":9001" \
     --root-user "$MINIO_USER" \
     --root-password "$MINIO_PASS" \
     >/tmp/minio.log 2>&1 &
 
-# Give MinIO a few seconds to start
+# Give MinIO a few seconds to fully start
 sleep 5
+
+# Export environment variables for setup.sh
+export INVENIO_S3_ACCESS_KEY_ID="$MINIO_USER"
+export INVENIO_S3_SECRET_ACCESS_KEY="$MINIO_PASS"
+export INVENIO_S3_ENDPOINT_URL="$MINIO_ENDPOINT"
 
 # ── 7. One-time setup ─────────────────────────────────────────────────────────
 log "Running setup.sh …"

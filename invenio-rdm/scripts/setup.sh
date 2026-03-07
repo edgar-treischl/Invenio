@@ -3,6 +3,7 @@
 # Usage: bash ~/invenio-rdm/scripts/setup.sh
 set -euo pipefail
 
+# ── Configurable environment variables ───────────────────────────────────────
 ADMIN_EMAIL="${INVENIO_ADMIN_EMAIL:-admin@example.com}"
 ADMIN_PASSWORD="${INVENIO_ADMIN_PASSWORD:-Admin1234!}"
 MINIO_ENDPOINT="${INVENIO_S3_ENDPOINT_URL:-http://localhost:9000}"
@@ -10,9 +11,10 @@ MINIO_USER="${INVENIO_S3_ACCESS_KEY_ID:-minio}"
 MINIO_PASS="${INVENIO_S3_SECRET_ACCESS_KEY:-minio123456}"
 BUCKET_NAME="default"
 
-export INVENIO_S3_ACCESS_KEY_ID="minio"
-export INVENIO_S3_SECRET_ACCESS_KEY="minio123456"
-export INVENIO_S3_ENDPOINT_URL="http://localhost:9000"
+# Export credentials for boto3 / Invenio
+export INVENIO_S3_ACCESS_KEY_ID="$MINIO_USER"
+export INVENIO_S3_SECRET_ACCESS_KEY="$MINIO_PASS"
+export INVENIO_S3_ENDPOINT_URL="$MINIO_ENDPOINT"
 
 log() { echo "[setup] $*"; }
 
@@ -24,23 +26,27 @@ wait_for() {
 }
 
 # ── Wait for services ─────────────────────────────────────────────────────────
-wait_for localhost 5432
-wait_for localhost 9200
-wait_for localhost 6379
-wait_for localhost 5672
-wait_for localhost 9000
+wait_for localhost 5432  # PostgreSQL
+wait_for localhost 9200  # OpenSearch
+wait_for localhost 6379  # Redis
+wait_for localhost 5672  # RabbitMQ
+wait_for localhost 9000  # MinIO
+
+# ── Give MinIO a moment to fully initialize ───────────────────────────────────
+sleep 5
 
 # ── MinIO bucket ──────────────────────────────────────────────────────────────
 log "Creating MinIO bucket '$BUCKET_NAME' …"
 python3 - <<PYEOF
 import boto3
 from botocore.exceptions import ClientError
+import os
 
 s3 = boto3.client(
     "s3",
-    endpoint_url="${MINIO_ENDPOINT}",
-    aws_access_key_id="${MINIO_USER}",
-    aws_secret_access_key="${MINIO_PASS}",
+    endpoint_url=os.environ["INVENIO_S3_ENDPOINT_URL"],
+    aws_access_key_id=os.environ["INVENIO_S3_ACCESS_KEY_ID"],
+    aws_secret_access_key=os.environ["INVENIO_S3_SECRET_ACCESS_KEY"],
     region_name="",
 )
 try:
