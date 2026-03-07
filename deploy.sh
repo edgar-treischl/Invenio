@@ -133,26 +133,23 @@ echo "✅ OpenSearch 2.19.4 installation complete!"
 echo "Admin password: $OPENSEARCH_ADMIN_PASSWORD"
 
 # ── 4. MinIO ─────────────────────────────────────────────────────────────────
-log "Installing MinIO …"
-if [ ! -f /usr/local/bin/minio ]; then
-    sudo curl -Lo /usr/local/bin/minio \
-        https://dl.min.io/server/minio/release/linux-amd64/minio
-    sudo chmod +x /usr/local/bin/minio
-fi
+log "Starting MinIO …"
 mkdir -p "$MINIO_DATA"
 
-# Start MinIO in background with correct credentials
-log "Starting MinIO …"
+# Start MinIO in background with credentials
 nohup minio server "$MINIO_DATA" \
     --console-address ":9001" \
     --address ":9000" \
-    --quiet \
     --root-user "$MINIO_USER" \
     --root-password "$MINIO_PASS" \
     >/tmp/minio.log 2>&1 &
 
-# Give MinIO a few seconds to start
-sleep 5
+# Wait until MinIO port is ready
+log "Waiting for MinIO to be ready …"
+until nc -z localhost 9000; do
+    sleep 2
+done
+log "MinIO is ready."
 
 # Export environment variables for setup.sh
 export INVENIO_S3_ACCESS_KEY_ID="$MINIO_USER"
