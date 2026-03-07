@@ -70,14 +70,14 @@ sudo systemctl enable --now rabbitmq-server
 # ── 3. OpenSearch 2.19.4 ─────────────────────────────────────────────────────
 log "Installing OpenSearch 2.19.4 …"
 
-# Remove any broken previous install
+# Remove any previous failed install
 if dpkg -l | grep -q opensearch; then
     echo "Removing previous OpenSearch installation..."
     sudo apt-get purge -y opensearch || true
 fi
 sudo rm -rf /etc/opensearch /var/lib/opensearch
 
-# Add OpenSearch repository if not exists
+# Add repository if not exists
 if [ ! -f /etc/apt/sources.list.d/opensearch.list ]; then
     echo "Adding OpenSearch repository..."
     curl -fsSL https://artifacts.opensearch.org/publickeys/opensearch.pgp \
@@ -88,41 +88,40 @@ https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main"
     sudo apt-get update -qq
 fi
 
-# Required system setting
+# Set required system settings
 echo "Setting vm.max_map_count..."
 sudo sysctl -w vm.max_map_count=262144
-if ! grep -q "vm.max_map_count" /etc/sysctl.conf; then
+grep -q "vm.max_map_count" /etc/sysctl.conf || \
     echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
-fi
 
-# Stub demo installer BEFORE installation
+# Stub demo installer BEFORE installation (prevents dpkg failure)
 DEMO_INSTALLER="/usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh"
 sudo mkdir -p "$(dirname "$DEMO_INSTALLER")"
 sudo bash -c "echo -e '#!/bin/bash\nexit 0' > $DEMO_INSTALLER"
 sudo chmod +x "$DEMO_INSTALLER"
 
-# Define strong admin password
+# Strong admin password
 OPENSEARCH_ADMIN_PASSWORD='S#cureP@ssw0rd2026!'
 
-# Install OpenSearch with environment variables
+# Install OpenSearch (skips demo config)
 sudo DEBIAN_FRONTEND=noninteractive \
     OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_ADMIN_PASSWORD" \
     DISABLE_INSTALL_DEMO_CONFIG=true \
     apt-get install -y opensearch
 
-# Finalize package configuration
+# Reconfigure package to finalize
 sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 
-# Ensure config file exists
+# Ensure config file exists before touching it
 CONFIG_FILE="/etc/opensearch/opensearch.yml"
 sudo mkdir -p "$(dirname "$CONFIG_FILE")"
 sudo touch "$CONFIG_FILE"
 
-# Disable security plugin (PoC / dev only)
+# Disable security plugin for PoC / dev
 grep -q "plugins.security.disabled" "$CONFIG_FILE" 2>/dev/null || \
     echo "plugins.security.disabled: true" | sudo tee -a "$CONFIG_FILE"
 
-# Enable and start OpenSearch service
+# Enable and start service
 sudo systemctl enable --now opensearch
 
 echo "✅ OpenSearch 2.19.4 installation complete!"
