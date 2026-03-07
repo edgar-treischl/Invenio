@@ -76,7 +76,9 @@ if ! systemctl is-active --quiet opensearch; then
 https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main" \
         | sudo tee /etc/apt/sources.list.d/opensearch.list
     sudo apt-get update -qq
-    sudo OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234! apt-get install -y opensearch
+    # Skip the demo security config to avoid failing post-install script.
+    sudo DISABLE_INSTALL_DEMO_CONFIG=true OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234! \
+        apt-get install -y opensearch
     grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml \
         || echo 'plugins.security.disabled: true' | sudo tee -a /etc/opensearch/opensearch.yml
     sudo systemctl enable --now opensearch
