@@ -80,17 +80,24 @@ https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main"
     sudo apt-get purge -y opensearch || true
     sudo rm -rf /etc/opensearch /var/lib/opensearch
     # Skip the demo security config to avoid failing post-install script; force env into dpkg.
-    echo "DISABLE_INSTALL_DEMO_CONFIG=true" | sudo tee /etc/default/opensearch >/dev/null
+    cat <<EOF | sudo tee /etc/default/opensearch >/dev/null
+DISABLE_INSTALL_DEMO_CONFIG=true
+OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234!
+opensearch_initial_admin_password=Admin1234!
+EOF
     OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin1234!
+    opensearch_initial_admin_password=Admin1234!
     DISABLE_INSTALL_DEMO_CONFIG=true
-    export OPENSEARCH_INITIAL_ADMIN_PASSWORD DISABLE_INSTALL_DEMO_CONFIG
+    export OPENSEARCH_INITIAL_ADMIN_PASSWORD opensearch_initial_admin_password DISABLE_INSTALL_DEMO_CONFIG
     sudo env -i PATH="$PATH" \
         OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_INITIAL_ADMIN_PASSWORD" \
+        opensearch_initial_admin_password="$opensearch_initial_admin_password" \
         DISABLE_INSTALL_DEMO_CONFIG="$DISABLE_INSTALL_DEMO_CONFIG" \
         DEBIAN_FRONTEND=noninteractive apt-get install -y opensearch
     # dpkg can still be half-configured; force a configure pass with the same env.
     sudo env -i PATH="$PATH" \
         OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_INITIAL_ADMIN_PASSWORD" \
+        opensearch_initial_admin_password="$opensearch_initial_admin_password" \
         DISABLE_INSTALL_DEMO_CONFIG="$DISABLE_INSTALL_DEMO_CONFIG" \
         DEBIAN_FRONTEND=noninteractive dpkg --configure opensearch
     grep -q "plugins.security.disabled" /etc/opensearch/opensearch.yml \
