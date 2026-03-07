@@ -102,7 +102,7 @@ sudo bash -c "echo -e '#!/bin/bash\nexit 0' > $DEMO_INSTALLER"
 sudo chmod +x "$DEMO_INSTALLER"
 
 # Define admin password and skip demo config
-OPENSEARCH_ADMIN_PASSWORD="Admin1234!"
+OPENSEARCH_ADMIN_PASSWORD='S#cureP@ssw0rd2026!'
 
 # Install OpenSearch
 sudo DEBIAN_FRONTEND=noninteractive \
