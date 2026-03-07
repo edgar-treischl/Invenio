@@ -167,6 +167,17 @@ source "$INVENIO_VENV/bin/activate"
 pip install --quiet --upgrade pip
 pip install --quiet -r "$INVENIO_RDM/requirements.txt"
 
+
+# ── Start MinIO server ─────────────────────────────────────────────────────────
+log "Starting MinIO …"
+mkdir -p "$MINIO_DATA"
+
+# Run MinIO in background (ports: API 9000, console 9001)
+nohup minio server "$MINIO_DATA" --console-address ":9001" >/tmp/minio.log 2>&1 &
+
+# Give MinIO a few seconds to initialize
+sleep 5
+
 # ── 7. One-time setup ─────────────────────────────────────────────────────────
 log "Running setup.sh …"
 export INVENIO_INSTANCE_PATH="$INVENIO_INSTANCE"

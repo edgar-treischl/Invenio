@@ -4,6 +4,14 @@
 copilot --resume=b498e773-127f-4b79-818e-dbc1743bb496
 ```
 
+```
+Use your VM’s host IP (e.g., from hostname -I), then: UI via http://<VM-IP> (nginx :80), REST via
+  http://<VM-IP>/api/records, MinIO console http://<VM-IP>:9001 (S3 API :9000), RabbitMQ http://
+  <VM-IP>:15672, OpenSearch http://<VM-IP>:9200. The uWSGI apps listen on 5000 (UI) and 5001 (API)
+  but are normally behind nginx; expose 80 (and the consoles) in your firewall/security group. If
+  you need to hit the API app directly, use http://<VM-IP>:5001/records (no /api prefix)
+```
+
 Self-hosted research data repository running **InvenioRDM v12** natively on Ubuntu 22.04. No Docker — all services run as native OS daemons.
 
 ## Quick start (Ubuntu 22.04 VM)
