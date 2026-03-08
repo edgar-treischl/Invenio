@@ -33,10 +33,21 @@ log "Requesting Copilot scope on your token …"
 gh auth refresh -h github.com -s "copilot" >/dev/null
 
 log "Creating shell aliases (bash/zsh) …"
-gh copilot alias --shell bash >/dev/null
-gh copilot alias --shell zsh >/dev/null || true
+gh copilot alias --shell bash >> "$HOME/.bashrc"
+gh copilot alias --shell zsh >> "$HOME/.zshrc" || true
+
+log "Creating copilot shim in ~/.local/bin …"
+mkdir -p "$HOME/.local/bin"
+cat > "$HOME/.local/bin/copilot" <<'EOS'
+#!/usr/bin/env bash
+exec gh copilot "$@"
+EOS
+chmod +x "$HOME/.local/bin/copilot"
+if ! echo "$PATH" | tr ':' '\n' | grep -qx "$HOME/.local/bin"; then
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+fi
 
 log "Checking Copilot status …"
 gh copilot status || true
 
-log "Done. Start a new shell or run 'exec \"$SHELL\"' to load the aliases."
+log "Done. Start a new shell or run 'exec \"$SHELL\"' to load PATH/aliases."

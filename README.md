@@ -37,7 +37,7 @@ Before working on a fresh VM, install the Copilot CLI integration (adds gh-copil
 ```bash
 bash scripts/copilot-setup.sh
 ```
-You need `gh` installed and authenticated (`gh auth login`); the script installs/updates the `gh-copilot` extension, refreshes the Copilot scope, and adds shell aliases.
+You need `gh` installed and authenticated (`gh auth login`); the script installs/updates the `gh-copilot` extension, refreshes the Copilot scope, adds shell aliases, and writes a `~/.local/bin/copilot` shim. Open a new shell (or run `exec "$SHELL"`) so the `copilot` command is available.
 
 ## Manual step-by-step
 
