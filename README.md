@@ -32,6 +32,13 @@ PUBLIC_HOST=$(hostname -I | awk '{print $1}') bash deploy.sh
 `deploy.sh` installs all system dependencies, infrastructure services, Python packages, wires up nginx and supervisord, and runs the one-time setup — fully automated.
 `PUBLIC_HOST` is optional (defaults to localhost) and sets APP_ALLOWED_HOSTS/SITE URLs/nginx server_name for your VM IP or domain.
 
+### Enable Copilot in the VM shell
+Before working on a fresh VM, install the Copilot CLI integration:
+```bash
+bash scripts/copilot-setup.sh
+```
+You need `gh` installed and authenticated (`gh auth login`); the script installs/updates the `gh-copilot` extension, refreshes the Copilot scope, and adds shell aliases.
+
 ## Manual step-by-step
 
 See [`outline.md`](outline.md) for the complete annotated guide.
