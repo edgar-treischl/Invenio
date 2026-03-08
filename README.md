@@ -26,10 +26,11 @@ Self-hosted research data repository running **InvenioRDM v12** natively on Ubun
 ```bash
 git clone https://github.com/edgar-treischl/Invenio.git ~/invenio-repo
 cd ~/invenio-repo
-bash deploy.sh
+PUBLIC_HOST=$(hostname -I | awk '{print $1}') bash deploy.sh
 ```
 
 `deploy.sh` installs all system dependencies, infrastructure services, Python packages, wires up nginx and supervisord, and runs the one-time setup — fully automated.
+`PUBLIC_HOST` is optional (defaults to localhost) and sets APP_ALLOWED_HOSTS/SITE URLs/nginx server_name for your VM IP or domain.
 
 ## Manual step-by-step
 

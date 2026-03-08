@@ -23,6 +23,7 @@ INVENIO_VENV="$USER_HOME/invenio-venv"
 INVENIO_INSTANCE="$USER_HOME/invenio-instance"
 MINIO_DATA="$USER_HOME/minio/data"
 SUPERVISOR_CONF="$USER_HOME/invenio-supervisor.conf"
+PUBLIC_HOST="${PUBLIC_HOST:-localhost}"
 
 # MinIO credentials
 MINIO_USER="minio"
@@ -162,11 +163,28 @@ CURRENT_USER="$(whoami)"
 sed -i "s/YOUR_USER/$CURRENT_USER/g" "$INVENIO_INSTANCE/uwsgi_ui.ini"
 sed -i "s/YOUR_USER/$CURRENT_USER/g" "$INVENIO_INSTANCE/uwsgi_rest.ini"
 
+log "Configuring allowed hosts and site URLs for $PUBLIC_HOST …"
+INVENIO_INSTANCE="$INVENIO_INSTANCE" PUBLIC_HOST="$PUBLIC_HOST" python3 - <<'PY'
+import os, pathlib, re
+cfg_path = pathlib.Path(os.environ["INVENIO_INSTANCE"]) / "invenio.cfg"
+host = os.environ["PUBLIC_HOST"]
+text = cfg_path.read_text()
+text = re.sub(
+    r'APP_ALLOWED_HOSTS\s*=.*',
+    f'APP_ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "{host}"]',
+    text,
+)
+text = re.sub(r'SITE_UI_URL\s*=.*',  f'SITE_UI_URL  = "http://{host}"', text)
+text = re.sub(r'SITE_API_URL\s*=.*', f'SITE_API_URL = "http://{host}/api"', text)
+cfg_path.write_text(text)
+PY
+
 log "Copying supervisor config …"
 sed "s/YOUR_USER/$CURRENT_USER/g" "$REPO_DIR/invenio-supervisor.conf" > "$SUPERVISOR_CONF"
 
 log "Installing nginx vhost …"
-sed "s/YOUR_USER/$CURRENT_USER/g" "$REPO_DIR/nginx/invenio.conf" \
+sed -e "s/YOUR_USER/$CURRENT_USER/g" -e "s/PUBLIC_HOST/$PUBLIC_HOST/g" \
+    "$REPO_DIR/nginx/invenio.conf" \
     | sudo tee /etc/nginx/sites-available/invenio >/dev/null
 sudo ln -sf /etc/nginx/sites-available/invenio /etc/nginx/sites-enabled/invenio
 sudo rm -f /etc/nginx/sites-enabled/default
@@ -192,8 +210,8 @@ supervisorctl -c "$SUPERVISOR_CONF" status
 
 log "================================================"
 log "Deployment complete!"
-log "  UI  → http://localhost"
-log "  API → http://localhost/api/records"
+log "  UI  → http://${PUBLIC_HOST}"
+log "  API → http://${PUBLIC_HOST}/api/records"
 log "  Admin: admin@example.com / Admin1234!"
 log ""
 log "Run tests:  bash tests/01_services.sh"
