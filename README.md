@@ -33,7 +33,7 @@ PUBLIC_HOST=$(hostname -I | awk '{print $1}') bash deploy.sh
 `PUBLIC_HOST` is optional (defaults to localhost) and sets APP_ALLOWED_HOSTS/SITE URLs/nginx server_name for your VM IP or domain.
 
 ### Enable Copilot in the VM shell
-Before working on a fresh VM, install the Copilot CLI integration:
+Before working on a fresh VM, install the Copilot CLI integration (adds gh-copilot, auth scope, aliases; uses sudo to install gh if missing):
 ```bash
 bash scripts/copilot-setup.sh
 ```
