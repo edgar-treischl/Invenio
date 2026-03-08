@@ -133,28 +133,27 @@ echo "✅ OpenSearch 2.19.4 installation complete!"
 echo "Admin password: $OPENSEARCH_ADMIN_PASSWORD"
 
 # ── 4. MinIO ─────────────────────────────────────────────────────────────────
-log "Starting MinIO …"
-mkdir -p "$MINIO_DATA"
+# Wait for MinIO to accept connections with correct credentials
+log "Waiting for MinIO to be ready and accept credentials …"
+export AWS_ACCESS_KEY_ID="$MINIO_USER"
+export AWS_SECRET_ACCESS_KEY="$MINIO_PASS"
 
-# Start MinIO in background with credentials
-nohup minio server "$MINIO_DATA" \
-    --console-address ":9001" \
-    --address ":9000" \
-    --root-user "$MINIO_USER" \
-    --root-password "$MINIO_PASS" \
-    >/tmp/minio.log 2>&1 &
+# Install mc if missing
+if ! command -v mc >/dev/null 2>&1; then
+    curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
+    chmod +x mc
+    sudo mv mc /usr/local/bin/
+fi
 
-# Wait until MinIO port is ready
-log "Waiting for MinIO to be ready …"
-until nc -z localhost 9000; do
+# Configure mc alias
+mc alias set localminio "$MINIO_ENDPOINT" "$MINIO_USER" "$MINIO_PASS"
+
+# Wait until we can list buckets successfully
+until mc ls localminio >/dev/null 2>&1; do
+    log "Waiting for MinIO to accept credentials …"
     sleep 2
 done
 log "MinIO is ready."
-
-# Export environment variables for setup.sh
-export INVENIO_S3_ACCESS_KEY_ID="$MINIO_USER"
-export INVENIO_S3_SECRET_ACCESS_KEY="$MINIO_PASS"
-export INVENIO_S3_ENDPOINT_URL="$MINIO_ENDPOINT"
 
 # ── 5. Copy repo files ────────────────────────────────────────────────────────
 log "Copying project files to $INVENIO_RDM …"
