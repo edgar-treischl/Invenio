@@ -213,6 +213,8 @@ sed -e "s/YOUR_USER/$CURRENT_USER/g" -e "s/PUBLIC_HOST/$PUBLIC_HOST/g" \
     | sudo tee /etc/nginx/sites-available/invenio >/dev/null
 sudo ln -sf /etc/nginx/sites-available/invenio /etc/nginx/sites-enabled/invenio
 sudo rm -f /etc/nginx/sites-enabled/default
+# nginx (www-data) must be able to traverse the home directory to serve /static.
+chmod o+x "$USER_HOME"
 sudo nginx -t && sudo systemctl reload nginx
 
 # ── 6. Python virtualenv ──────────────────────────────────────────────────────
