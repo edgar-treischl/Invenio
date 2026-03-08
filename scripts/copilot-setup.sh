@@ -36,15 +36,20 @@ log "Creating shell aliases (bash/zsh) …"
 gh copilot alias --shell bash >> "$HOME/.bashrc"
 gh copilot alias --shell zsh >> "$HOME/.zshrc" || true
 
-log "Creating copilot shim in ~/.local/bin …"
-mkdir -p "$HOME/.local/bin"
-cat > "$HOME/.local/bin/copilot" <<'EOS'
+log "Creating copilot shim in /usr/local/bin …"
+if command -v sudo >/dev/null 2>&1; then
+  echo -e "#!/usr/bin/env bash\nexec gh copilot \"\$@\"" | sudo tee /usr/local/bin/copilot >/dev/null
+  sudo chmod +x /usr/local/bin/copilot
+else
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/copilot" <<'EOS'
 #!/usr/bin/env bash
 exec gh copilot "$@"
 EOS
-chmod +x "$HOME/.local/bin/copilot"
-if ! echo "$PATH" | tr ':' '\n' | grep -qx "$HOME/.local/bin"; then
-  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+  chmod +x "$HOME/.local/bin/copilot"
+  if ! echo "$PATH" | tr ':' '\n' | grep -qx "$HOME/.local/bin"; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+  fi
 fi
 
 log "Checking Copilot status …"
