@@ -8,10 +8,11 @@
 # What this does:
 #   1. Installs system packages, Python 3.9, Node.js 18
 #   2. Installs and starts infrastructure services
-#   3. Copies repo files into the expected home-directory layout
-#   4. Installs Python dependencies into a virtualenv
-#   5. Runs setup.sh to initialise the database, search, storage, and frontend
-#   6. Installs and enables the nginx vhost and supervisord config
+#   3. Installs and starts MinIO automatically
+#   4. Copies repo files into the expected home-directory layout
+#   5. Installs Python dependencies into a virtualenv
+#   6. Runs setup.sh to initialise the database, search, storage, and frontend
+#   7. Installs and enables the nginx vhost and supervisord config
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -26,7 +27,7 @@ SUPERVISOR_CONF="$USER_HOME/invenio-supervisor.conf"
 # MinIO credentials
 MINIO_USER="minio"
 MINIO_PASS="minio123456"
-MINIO_ENDPOINT="http://localhost:9000"
+MINIO_ENDPOINT="http://127.0.0.1:9000"
 
 log() { echo -e "\n\033[1;34m[deploy]\033[0m $*"; }
 
@@ -74,17 +75,14 @@ sudo systemctl enable --now rabbitmq-server
 
 # ── 3. OpenSearch 2.19.4 ─────────────────────────────────────────────────────
 log "Installing OpenSearch 2.19.4 …"
-
-# Remove any previous failed install
 if dpkg -l | grep -q opensearch; then
     echo "Removing previous OpenSearch installation..."
     sudo apt-get purge -y opensearch || true
 fi
 sudo rm -rf /etc/opensearch /var/lib/opensearch
 
-# Add repository if not exists
 if [ ! -f /etc/apt/sources.list.d/opensearch.list ]; then
-    echo "Adding OpenSearch repository..."
+    log "Adding OpenSearch repository..."
     curl -fsSL https://artifacts.opensearch.org/publickeys/opensearch.pgp \
         | sudo gpg --dearmor -o /usr/share/keyrings/opensearch.gpg
     echo "deb [signed-by=/usr/share/keyrings/opensearch.gpg] \
@@ -93,62 +91,59 @@ https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main"
     sudo apt-get update -qq
 fi
 
-# Set required system settings
 echo "Setting vm.max_map_count..."
 sudo sysctl -w vm.max_map_count=262144
 grep -q "vm.max_map_count" /etc/sysctl.conf || \
     echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
 
-# Stub demo installer BEFORE installation (prevents dpkg failure)
 DEMO_INSTALLER="/usr/share/opensearch/plugins/opensearch-security/tools/install_demo_configuration.sh"
 sudo mkdir -p "$(dirname "$DEMO_INSTALLER")"
 sudo bash -c "echo -e '#!/bin/bash\nexit 0' > $DEMO_INSTALLER"
 sudo chmod +x "$DEMO_INSTALLER"
 
-# Strong admin password
 OPENSEARCH_ADMIN_PASSWORD='S#cureP@ssw0rd2026!'
-
-# Install OpenSearch (skips demo config)
 sudo DEBIAN_FRONTEND=noninteractive \
     OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_ADMIN_PASSWORD" \
     DISABLE_INSTALL_DEMO_CONFIG=true \
     apt-get install -y opensearch
-
-# Reconfigure package to finalize
 sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
 
-# Ensure config file exists before touching it
 CONFIG_FILE="/etc/opensearch/opensearch.yml"
 sudo mkdir -p "$(dirname "$CONFIG_FILE")"
 sudo touch "$CONFIG_FILE"
-
-# Disable security plugin for PoC / dev
 grep -q "plugins.security.disabled" "$CONFIG_FILE" 2>/dev/null || \
     echo "plugins.security.disabled: true" | sudo tee -a "$CONFIG_FILE"
 
-# Enable and start service
 sudo systemctl enable --now opensearch
-
 echo "✅ OpenSearch 2.19.4 installation complete!"
 echo "Admin password: $OPENSEARCH_ADMIN_PASSWORD"
 
 # ── 4. MinIO ─────────────────────────────────────────────────────────────────
-# Wait for MinIO to accept connections with correct credentials
-log "Waiting for MinIO to be ready and accept credentials …"
+log "Installing and starting MinIO …"
+# Install MinIO binary if missing
+if ! command -v minio >/dev/null 2>&1; then
+    curl -O https://dl.min.io/server/minio/release/linux-amd64/minio
+    chmod +x minio
+    sudo mv minio /usr/local/bin/
+fi
+
+mkdir -p "$MINIO_DATA"
+export MINIO_ROOT_USER="$MINIO_USER"
+export MINIO_ROOT_PASSWORD="$MINIO_PASS"
+
+nohup minio server "$MINIO_DATA" --console-address ":9001" > "$HOME/minio.log" 2>&1 &
+sleep 5
+
 export AWS_ACCESS_KEY_ID="$MINIO_USER"
 export AWS_SECRET_ACCESS_KEY="$MINIO_PASS"
 
-# Install mc if missing
 if ! command -v mc >/dev/null 2>&1; then
     curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
     chmod +x mc
     sudo mv mc /usr/local/bin/
 fi
 
-# Configure mc alias
 mc alias set localminio "$MINIO_ENDPOINT" "$MINIO_USER" "$MINIO_PASS"
-
-# Wait until we can list buckets successfully
 until mc ls localminio >/dev/null 2>&1; do
     log "Waiting for MinIO to accept credentials …"
     sleep 2
@@ -163,7 +158,6 @@ log "Copying instance config to $INVENIO_INSTANCE …"
 mkdir -p "$INVENIO_INSTANCE"
 rsync -a "$REPO_DIR/invenio-instance/" "$INVENIO_INSTANCE/"
 
-# Patch YOUR_USER placeholder in uwsgi ini and nginx conf
 CURRENT_USER="$(whoami)"
 sed -i "s/YOUR_USER/$CURRENT_USER/g" "$INVENIO_INSTANCE/uwsgi_ui.ini"
 sed -i "s/YOUR_USER/$CURRENT_USER/g" "$INVENIO_INSTANCE/uwsgi_rest.ini"
@@ -181,7 +175,6 @@ sudo nginx -t && sudo systemctl reload nginx
 # ── 6. Python virtualenv ──────────────────────────────────────────────────────
 log "Creating virtualenv at $INVENIO_VENV …"
 python3.9 -m venv "$INVENIO_VENV"
-# shellcheck disable=SC1090
 source "$INVENIO_VENV/bin/activate"
 pip install --quiet --upgrade pip
 pip install --quiet -r "$INVENIO_RDM/requirements.txt"
