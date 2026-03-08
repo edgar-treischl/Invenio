@@ -30,7 +30,8 @@ wait_for_opensearch() {
     local url=${1:-http://localhost:9200/_cluster/health}
     log "Waiting for OpenSearch cluster health …"
     for i in $(seq 1 60); do
-        status=$(curl -s --max-time 5 "$url" | python3 -c 'import sys, json; data=sys.stdin.read(); print(json.loads(data).get("status","") if data else "")')
+        # Use || true so a curl timeout (exit 28) doesn't abort the loop under set -eo pipefail.
+        status=$(curl -s --max-time 5 "$url" | python3 -c 'import sys, json; data=sys.stdin.read(); print(json.loads(data).get("status","") if data else "")' 2>/dev/null) || true
         log "  attempt ${i}/60: status=${status:-<none>}"
         if [[ "$status" == "yellow" || "$status" == "green" ]]; then
             log "OpenSearch health is $status."

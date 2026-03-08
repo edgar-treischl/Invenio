@@ -76,10 +76,11 @@ sudo systemctl enable --now rabbitmq-server
 
 # ── 3. OpenSearch 2.19.4 ─────────────────────────────────────────────────────
 log "Installing OpenSearch 2.19.4 …"
-if dpkg -l | grep -q opensearch; then
-    echo "Removing previous OpenSearch installation..."
-    sudo apt-get purge -y opensearch || true
-fi
+# Stop OpenSearch before wiping its data/config dirs to avoid broken node lock.
+sudo systemctl stop opensearch 2>/dev/null || true
+# Always purge so apt always runs a clean first-install (not an "upgrade"),
+# avoiding the postinst's service-restart branch that fires on upgrades.
+sudo apt-get purge -y opensearch 2>/dev/null || true
 sudo rm -rf /etc/opensearch /var/lib/opensearch
 
 if [ ! -f /etc/apt/sources.list.d/opensearch.list ]; then
@@ -102,18 +103,36 @@ sudo mkdir -p "$(dirname "$DEMO_INSTALLER")"
 sudo bash -c "echo -e '#!/bin/bash\nexit 0' > $DEMO_INSTALLER"
 sudo chmod +x "$DEMO_INSTALLER"
 
+# Patch the postinst to create /var/run/opensearch before chowning it.
+# The directory is normally managed by systemd's RuntimeDirectory, so it does
+# not exist at the time the postinst runs — the stock script tries to chown a
+# non-existent path and fails with "No such file or directory".
+if [ -f /var/lib/dpkg/info/opensearch.postinst ]; then
+    sudo sed -i 's|chown -R opensearch:opensearch \${pid_dir}|mkdir -p ${pid_dir} \&\& chown -R opensearch:opensearch ${pid_dir}|g' \
+        /var/lib/dpkg/info/opensearch.postinst
+fi
+
 OPENSEARCH_ADMIN_PASSWORD='S#cureP@ssw0rd2026!'
 sudo DEBIAN_FRONTEND=noninteractive \
     OPENSEARCH_INITIAL_ADMIN_PASSWORD="$OPENSEARCH_ADMIN_PASSWORD" \
     DISABLE_INSTALL_DEMO_CONFIG=true \
     apt-get install -y opensearch
-sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
+# Run dpkg --configure only if dpkg reports unfinished packages; the
+# postinst already starts opensearch on first install so we skip a redundant
+# configure pass that would trigger another (failing) service restart.
+sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a 2>/dev/null || true
 
+# Write a clean opensearch.yml (not append) so we never get duplicate keys.
 CONFIG_FILE="/etc/opensearch/opensearch.yml"
-sudo mkdir -p "$(dirname "$CONFIG_FILE")"
-sudo touch "$CONFIG_FILE"
-grep -q "plugins.security.disabled" "$CONFIG_FILE" 2>/dev/null || \
-    echo "plugins.security.disabled: true" | sudo tee -a "$CONFIG_FILE"
+sudo bash -c "echo 'plugins.security.disabled: true' > $CONFIG_FILE"
+sudo chown opensearch:opensearch "$CONFIG_FILE"
+sudo chmod 640 "$CONFIG_FILE"
+
+# Ensure the data and pid directories exist with the correct ownership.
+# apt postinst creates these on first install but they may be absent on
+# re-runs where the service was stopped before the directories were created.
+sudo mkdir -p /var/lib/opensearch /var/run/opensearch
+sudo chown opensearch:opensearch /var/lib/opensearch /var/run/opensearch
 
 sudo systemctl enable --now opensearch
 echo "✅ OpenSearch 2.19.4 installation complete!"
@@ -127,6 +146,10 @@ if ! command -v minio >/dev/null 2>&1; then
     chmod +x minio
     sudo mv minio /usr/local/bin/
 fi
+
+# Kill any existing MinIO process to avoid port conflicts on re-runs.
+pkill -x minio 2>/dev/null || true
+sleep 2
 
 mkdir -p "$MINIO_DATA"
 export MINIO_ROOT_USER="$MINIO_USER"
