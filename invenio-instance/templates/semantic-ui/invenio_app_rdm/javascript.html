@@ -1,0 +1,41 @@
+{# -*- coding: utf-8 -*-
+  Custom override of InvenioRDM javascript.html to fix navbar dropdown
+  initialization on authenticated pages.
+#}
+{{ webpack['theme.js']}}
+{{ webpack['base-theme-rdm.js']}}
+{{ webpack['i18n_app.js']}}
+{{ webpack['overridable-registry.js'] }}
+<script>
+(function() {
+  function initDropdowns() {
+    if (typeof $ === 'undefined' || !$.fn || !$.fn.dropdown) return;
+    $('#user-profile-dropdown.ui.dropdown').dropdown({
+      showOnFocus: false,
+      selectOnKeydown: false,
+      action: function(text, value, element) {
+        var href = element.attr('href');
+        if (href) window.location.pathname = href;
+      },
+      onShow: function() { $('#user-profile-dropdown-btn').attr('aria-expanded', true); },
+      onHide: function() { $('#user-profile-dropdown-btn').attr('aria-expanded', false); }
+    });
+    $('#quick-create-dropdown.ui.dropdown').dropdown({
+      showOnFocus: false,
+      selectOnKeydown: false,
+      action: function(text, value, element) {
+        var href = element.attr('href');
+        if (href) window.location.pathname = href;
+      },
+      onShow: function() { $('#quick-create-dropdown-btn').attr('aria-expanded', true); },
+      onHide: function() { $('#quick-create-dropdown-btn').attr('aria-expanded', false); }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDropdowns);
+  } else {
+    initDropdowns();
+  }
+  window.addEventListener('load', initDropdowns);
+})();
+</script>
