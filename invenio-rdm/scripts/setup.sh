@@ -25,12 +25,30 @@ wait_for() {
     log "$host:$port is up."
 }
 
+# Wait for OpenSearch cluster health to reach at least yellow.
+wait_for_opensearch() {
+    local url=${1:-http://localhost:9200/_cluster/health}
+    log "Waiting for OpenSearch cluster health …"
+    for i in $(seq 1 30); do
+        status=$(curl -s --max-time 5 "$url" | python3 -c 'import sys, json; data=sys.stdin.read();\nprint(json.loads(data).get("status","") if data else "")')
+        if [[ "$status" == "yellow" || "$status" == "green" ]]; then
+            log "OpenSearch health is $status."
+            return 0
+        fi
+        sleep 2
+    done
+    log "ERROR: OpenSearch did not become ready in time."
+    return 1
+}
+
 # ── Wait for services ─────────────────────────────────────────────────────────
 wait_for localhost 5432  # PostgreSQL
 wait_for localhost 9200  # OpenSearch
 wait_for localhost 6379  # Redis
 wait_for localhost 5672  # RabbitMQ
 wait_for localhost 9000  # MinIO
+# Ensure OpenSearch responds before proceeding
+wait_for_opensearch
 
 # ── Give MinIO a moment to fully initialize ───────────────────────────────────
 sleep 5
