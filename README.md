@@ -121,7 +121,18 @@ bash tests/04_api_record.sh [optional-record-id]
 | REST API | http://localhost/api/records |
 | Admin login | admin@example.com / Admin1234! |
 | MinIO console | http://localhost:9001 (minio / minio123456) |
+| RabbitMQ management | http://localhost:15672 (guest / guest) |
 | Supervisor status | `supervisorctl -c ~/invenio-supervisor.conf status` |
 | UI log | `tail -f /tmp/invenio-ui.log` |
 | API log | `tail -f /tmp/invenio-api.log` |
 | Celery log | `tail -f /tmp/celery.log` |
+
+### This deployment
+
+| What | URL |
+|---|---|
+| **Main UI** | http://159.89.20.223 |
+| **REST API** | http://159.89.20.223/api/records |
+| **Admin login** | admin@example.com / Admin1234! |
+| **MinIO console** | http://159.89.20.223:9001 (minio / minio123456) |
+| **RabbitMQ mgmt** | http://159.89.20.223:15672 (guest / guest) |
