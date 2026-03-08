@@ -172,8 +172,8 @@ log "Copying supervisor config …"
 sed "s/YOUR_USER/$CURRENT_USER/g" "$REPO_DIR/invenio-supervisor.conf" > "$SUPERVISOR_CONF"
 
 log "Installing nginx vhost …"
-sudo sed "s/YOUR_USER/$CURRENT_USER/g" "$REPO_DIR/nginx/invenio.conf" \
-    > /etc/nginx/sites-available/invenio
+sed "s/YOUR_USER/$CURRENT_USER/g" "$REPO_DIR/nginx/invenio.conf" \
+    | sudo tee /etc/nginx/sites-available/invenio >/dev/null
 sudo ln -sf /etc/nginx/sites-available/invenio /etc/nginx/sites-enabled/invenio
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx

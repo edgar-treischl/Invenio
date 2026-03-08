@@ -10,6 +10,11 @@ Use your VM’s host IP (e.g., from hostname -I), then: UI via http://<VM-IP> (n
   <VM-IP>:15672, OpenSearch http://<VM-IP>:9200. The uWSGI apps listen on 5000 (UI) and 5001 (API)
   but are normally behind nginx; expose 80 (and the consoles) in your firewall/security group. If
   you need to hit the API app directly, use http://<VM-IP>:5001/records (no /api prefix)
+
+adduser invenio
+usermod -aG sudo invenio
+su - invenio
+
 ```
 
 Self-hosted research data repository running **InvenioRDM v12** natively on Ubuntu 22.04. No Docker — all services run as native OS daemons.
