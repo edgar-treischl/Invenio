@@ -82,7 +82,7 @@ PYEOF
 
 # ── Database ──────────────────────────────────────────────────────────────────
 log "Creating database tables …"
-invenio db create --verbose
+invenio db create --verbose || log "Database tables already exist — skipping."
 
 # ── Search indices ────────────────────────────────────────────────────────────
 log "Creating OpenSearch indices …"
@@ -96,7 +96,7 @@ invenio files location create --default default "s3://${BUCKET_NAME}" || \
 
 # ── Vocabularies & fixtures ───────────────────────────────────────────────────
 log "Loading vocabularies …"
-invenio rdm fixtures
+invenio rdm fixtures || log "RDM fixtures already loaded — skipping."
 invenio rdm-records fixtures || log "rdm-records fixtures failed (demo users) — non-fatal."
 
 # ── Frontend assets ───────────────────────────────────────────────────────────

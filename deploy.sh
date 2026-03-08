@@ -147,8 +147,10 @@ if ! command -v minio >/dev/null 2>&1; then
     sudo mv minio /usr/local/bin/
 fi
 
-# Kill any existing MinIO process to avoid port conflicts on re-runs.
-pkill -x minio 2>/dev/null || true
+# Stop any existing MinIO process to avoid port conflicts on re-runs.
+# (pkill is unavailable; locate via ps and kill by PID.)
+ps aux | awk '/[/]usr[/]local[/]bin[/]minio/ && !/awk/ {print $2}' \
+    | xargs -r -I{} sh -c 'kill {} 2>/dev/null; true'
 sleep 2
 
 mkdir -p "$MINIO_DATA"
@@ -227,8 +229,29 @@ bash "$INVENIO_RDM/scripts/setup.sh"
 
 # ── 8. Start supervisor ───────────────────────────────────────────────────────
 log "Starting application processes …"
+# Shut down any previously running supervisord (and its managed processes)
+# before starting a fresh instance. Without this, stale uwsgi workers holding
+# ports 5000/5001 cause the new invenio-ui/invenio-api programs to FATAL.
+if supervisorctl -c "$SUPERVISOR_CONF" shutdown 2>/dev/null; then
+    sleep 5
+fi
+# Kill any orphaned uwsgi workers or minio not tracked by supervisor.
+# (We avoid pkill which is not always available; use ps+awk+xargs instead.)
+ps aux | awk '/uwsgi.*(uwsgi_rest|uwsgi_ui)/ && !/awk/ {print $2}' \
+    | xargs -r -I{} sh -c 'kill {} 2>/dev/null; true'
+ps aux | awk '/[/]usr[/]local[/]bin[/]minio/ && !/awk/ {print $2}' \
+    | xargs -r -I{} sh -c 'kill {} 2>/dev/null; true'
+sleep 2
+
+# Ensure supervisor log files are owned by the current user so supervisord
+# (which runs as this user) can write to them even on re-runs.
+touch /tmp/minio.log /tmp/celery.log /tmp/invenio-api.log /tmp/invenio-ui.log
+# (chown is only needed if root created them on a previous run)
+sudo chown "$CURRENT_USER:$CURRENT_USER" \
+    /tmp/minio.log /tmp/celery.log /tmp/invenio-api.log /tmp/invenio-ui.log 2>/dev/null || true
+
 supervisord -c "$SUPERVISOR_CONF"
-sleep 5
+sleep 8
 supervisorctl -c "$SUPERVISOR_CONF" status
 
 log "================================================"
