@@ -30,7 +30,7 @@ wait_for_opensearch() {
     local url=${1:-http://localhost:9200/_cluster/health}
     log "Waiting for OpenSearch cluster health …"
     for i in $(seq 1 30); do
-        status=$(curl -s --max-time 5 "$url" | python3 -c 'import sys, json; data=sys.stdin.read();\nprint(json.loads(data).get("status","") if data else "")')
+        status=$(curl -s --max-time 5 "$url" | python3 -c 'import sys, json; data=sys.stdin.read(); print(json.loads(data).get("status","") if data else "")')
         if [[ "$status" == "yellow" || "$status" == "green" ]]; then
             log "OpenSearch health is $status."
             return 0
